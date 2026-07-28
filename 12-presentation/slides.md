@@ -90,9 +90,9 @@ Key rotation, mutable tags, audit gaps. **Batch into platform backlog.**
 
 # Architecture: High-Level View
 
-![height:500px](hld-diagram.md)
+![High-level architecture diagram](../10-architecture/hld-diagram.drawio.svg){height=500px}
 
-*See `10-architecture/hld-diagram.md` for the full Mermaid source.*
+*See `10-architecture/hld-diagram.drawio.svg` for the architecture diagram source.*
 
 ---
 
