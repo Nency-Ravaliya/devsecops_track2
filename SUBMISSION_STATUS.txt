@@ -1,0 +1,9 @@
+?? COMMIT_HISTORY.txt
+?? SUBMISSION_STATUS.txt
+
+Submission package notes:
+- Do not submit local screenshot/cache images.
+- Architecture diagrams are supplied as draw.io files under 10-architecture/.
+- Presentation PDF: 12-presentation/slides.pdf
+- Consolidated submission PDF: 12-presentation/submission-full.pdf
+- Reference target: reference-target/ terragoat clone/submodule working tree
