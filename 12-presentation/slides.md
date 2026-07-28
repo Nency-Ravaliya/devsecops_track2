@@ -90,13 +90,17 @@ Key rotation, mutable tags, audit gaps. **Batch into platform backlog.**
 
 # Architecture: High-Level View
 
-![High-level architecture diagram](../10-architecture/hld-diagram.drawio.svg){height=500px}
+![High-level architecture diagram](../10-architecture/hld-diagram.png)
 
-*See `10-architecture/hld-diagram.drawio.svg` for the architecture diagram source.*
+*See `10-architecture/hld-diagram.png` for the architecture diagram source.*
 
 ---
 
 # Architecture: Low-Level Slice
+
+![Low-level architecture diagram](../10-architecture/lld-diagram.png)
+
+*See `10-architecture/lld-diagram.png` for the low-level architecture diagram source.*
 
 **One representative path: GitLab CI → production RDS database**
 
