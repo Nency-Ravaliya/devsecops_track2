@@ -1,0 +1,18 @@
+aac95b9 (HEAD -> main) docs: add draw.io diagrams, consolidated submission PDF, remove AI content
+a1966e0 docs: final consistency pass — README executive summary + status update
+663d584 docs(presentation): final panel deck
+b4963e6 docs(11-resilience-dr): Resilience & Disaster Recovery Across Clouds
+e561a78 docs(10-architecture): High-Level and Low-Level Architecture Diagrams
+9f6581e docs(09-compliance): Compliance Mapping
+b912e0b docs(08-threat-model): Threat Modeling Exercise
+485bc79 docs(07-remediation): Compensating Controls for COTS Constraint
+8fea996 docs(07-remediation): Remediation Advisory Pack with corrected Terraform
+bcc9569 docs(06-detection-ir): Detection, Monitoring & Incident Response
+cfedcd2 docs(05-data-protection): Data Protection, Encryption & Key Management
+93d79fe docs(04-network-zero-trust): Network Security & Zero-Trust Architecture
+0d07db8 docs(03-identity-governance): Identity & Access Governance Across Clouds
+ad295b5 docs(02-pipeline-supply-chain): Shift-Left Pipeline & Software Supply Chain Security
+30d148f docs(01-findings): Cloud Platform & Terraform Security Review
+261813f chore: add reference target as git submodule
+babbc73 docs: add README scaffold and reference target justification
+863a8ab chore: repo scaffold + terragoat reference target

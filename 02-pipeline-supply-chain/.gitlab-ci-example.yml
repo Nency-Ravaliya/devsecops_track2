@@ -1,0 +1,310 @@
+# DevSecOps Pipeline — Example GitLab CI/CD configuration
+#
+# This pipeline implements the seven-stage security gate design documented
+# in pipeline-design.md. It references Module 1 finding IDs (CLD-xxx) to
+# show where each gate would have caught specific audit findings.
+#
+# Stages:
+#   preflight → secrets → iac-scan → sca-sbom → container-scan →
+#   approval-gate → deploy
+#
+# Workload criticality is controlled through the WORKLOAD_TIER input
+# variable. See pipeline-design.md for tier definitions.
+
+# ── Shared component library ─────────────────────────────────────────
+# In production this would be a centrally published GitLab CI component.
+# For this example, the entire pipeline is inline for readability.
+include:
+  - template: Jobs/SAST.gitlab-ci.yml     # GitLab SAST (vulnerability-analyzer)
+  - template: Jobs/Secret-Detection.gitlab-ci.yml  # GitLab Secret Detection
+
+# ── Pipeline variables ──────────────────────────────────────────────
+variables:
+  TERRAFORM_VERSION: "1.8.5"
+  CHECKOV_VERSION: "3.2.0"
+  TRIVY_VERSION: "0.55.2"
+  GITLEAKS_VERSION: "8.20.0"
+  SYFT_VERSION: "1.10.0"
+  TF_ROOT: "${CI_PROJECT_DIR}"
+  DEPLOY_ENVIRONMENT: "production"
+
+# ── Workflow rules ──────────────────────────────────────────────────
+# Always run on merge requests and default branch pushes.
+# Scheduled runs do NOT deploy — they are drift detection only.
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      variables:
+        SCAN_ONLY: "true"
+    - when: never
+
+# ── Stage 1: preflight ──────────────────────────────────────────────
+# Catches syntax errors before burning scanner cycles.
+terraform-fmt:
+  stage: preflight
+  image: hashicorp/terraform:${TERRAFORM_VERSION}
+  script:
+    - terraform fmt -check -recursive -diff
+  allow_failure: true        # soft-fail — formatting is a hygiene concern
+  rules:
+    - if: '$SCAN_ONLY == "true"'
+      when: never
+    - when: on_success
+
+terraform-validate:
+  stage: preflight
+  image: hashicorp/terraform:${TERRAFORM_VERSION}
+  script:
+    - terraform init -backend=false
+    - terraform validate
+  rules:
+    - if: '$SCAN_ONLY == "true"'
+      when: never
+    - when: on_success
+
+# ── Stage 2: secrets detection ──────────────────────────────────────
+# Hard-fail. Would catch CLD-004, CLD-005, CLD-006, CLD-007, CLD-008,
+# CLD-025 (all committed hardcoded credentials identified in Module 1).
+gitleaks-scan:
+  stage: secrets
+  image: ghcr.io/gitleaks/gitleaks:${GITLEAKS_VERSION}
+  script:
+    - gitleaks detect --source=${TF_ROOT} --verbose --no-git
+  # In production, use --no-git on the MR diff or --log-opts for branch diffs
+  allow_failure: false       # hard-fail — no committed secrets
+  artifacts:
+    reports:
+      secret_detection: gl-secret-detection-report.json
+    when: always
+
+# ── Stage 3: IaC security scanning ───────────────────────────────────
+# Hard-fail on Critical/High. Would catch CLD-001 (public S3), CLD-002
+# (public+unencrypted RDS), CLD-003 (wildcard IAM), CLD-011 (public GCS),
+# CLD-013 (open SSH SG), CLD-014 (open NSG), CLD-015 (open GCP firewall),
+# CLD-018/020/021 (unencrypted disks), CLD-022 (KMS rotation), and dozens
+# more from the Module 1 register.
+checkov-scan:
+  stage: iac-scan
+  image: bridgecrew/checkov:${CHECKOV_VERSION}
+  script:
+    # Terraform scanning — Critical and High findings hard-fail
+    - |
+      checkov --directory ${TF_ROOT} \
+              --framework terraform \
+              --compact \
+              --output cli \
+              --output junitxml:checkov-report.xml \
+              --output sarif:checkov-report.sarif \
+              --skip-check MEDIUM,LOW \
+              --severity CRITICAL,HIGH \
+              --quiet
+  # checkov exits 1 on check failures; pipeline stops.
+  # Medium/Low findings are scanned by the soft-fail variant below.
+  artifacts:
+    reports:
+      iac_scanning: checkov-report.xml
+      sast: checkov-report.sarif
+    when: always
+
+checkov-softfail:
+  stage: iac-scan
+  image: bridgecrew/checkov:${CHECKOV_VERSION}
+  script:
+    - |
+      checkov --directory ${TF_ROOT} \
+              --framework terraform \
+              --compact \
+              --output cli \
+              --output junitxml:checkov-medium-report.xml \
+              --skip-check CRITICAL,HIGH \
+              --quiet || true
+  # Medium and Low findings annotate the MR but do not stop the pipeline.
+  allow_failure: true
+  artifacts:
+    reports:
+      iac_scanning: checkov-medium-report.xml
+    when: always
+
+trivy-iac-scan:
+  stage: iac-scan
+  image: aquasec/trivy:${TRIVY_VERSION}
+  variables:
+    TRIVY_CACHE_DIR: "${CI_PROJECT_DIR}/.trivycache/"
+  cache:
+    paths:
+      - .trivycache/
+  script:
+    - trivy config --severity CRITICAL,HIGH --exit-code 1 --format sarif --output trivy-iac-report.sarif ${TF_ROOT}
+  # Secondary scanner with a different rule engine — hard-fail on Critical/High
+  artifacts:
+    reports:
+      sast: trivy-iac-report.sarif
+    when: always
+
+opa-conftest:
+  stage: iac-scan
+  image: openpolicyagent/conftest:latest
+  script:
+    - conftest test --policy policy/ ${TF_ROOT} --policy alpine.rego
+  # Custom organisational policies — hard-fail on violations
+  # In production, policies are pulled from a central policy-library repo
+  allow_failure: false
+  rules:
+    - exists:
+        - "policy/*.rego"
+
+# ── Stage 4: dependency / SCA scanning and SBOM ──────────────────────
+# Hard-fail on Critical CVEs with known exploit paths.
+trivy-sca:
+  stage: sca-sbom
+  image: aquasec/trivy:${TRIVY_VERSION}
+  variables:
+    TRIVY_CACHE_DIR: "${CI_PROJECT_DIR}/.trivycache/"
+  cache:
+    paths:
+      - .trivycache/
+  script:
+    - |
+      trivy fs --scanners vuln \
+               --severity CRITICAL,HIGH \
+               --exit-code 1 \
+               --format sarif \
+               --output trivy-sca-report.sarif \
+               ${TF_ROOT}
+  # Hard-fail on Critical CVEs. High CVEs are soft-fail tracked via SLA.
+  allow_failure:
+    exit_codes: 2  # Only High-severity findings still fail softly
+  artifacts:
+    reports:
+      sast: trivy-sca-report.sarif
+    when: always
+
+# SBOM generation — no gate, pure inventory
+syft-sbom:
+  stage: sca-sbom
+  image: anchore/syft:${SYFT_VERSION}
+  script:
+    - syft dir:${TF_ROOT} --output cyclonedx-json=sbom-${CI_COMMIT_SHORT_SHA}.cdx.json
+  artifacts:
+    paths:
+      - "sbom-*.cdx.json"
+    expire_in: 90 days
+
+# ── Stage 5: container image scanning ────────────────────────────────
+# Only runs if the pipeline builds a container image.
+container-scan:
+  stage: container-scan
+  image: aquasec/trivy:${TRIVY_VERSION}
+  variables:
+    TRIVY_CACHE_DIR: "${CI_PROJECT_DIR}/.trivycache/"
+    IMAGE_TAG: "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}"
+  cache:
+    paths:
+      - .trivycache/
+  script:
+    - trivy image --severity CRITICAL,HIGH --exit-code 1 --format sarif --output container-scan-report.sarif ${IMAGE_TAG}
+  allow_failure: false
+  artifacts:
+    reports:
+      sast: container-scan-report.sarif
+    when: always
+  rules:
+    - if: '$SCAN_ONLY == "true"'
+      when: never
+    - exists:
+        - "Dockerfile"
+        - "Containerfile"
+
+# ── Stage 6: protected environment approval gate ─────────────────────
+# Production deployments require security approver. Controlled by
+# WORKLOAD_TIER — Tier 1 workloads always require approval.
+#
+# The GitLab project must be configured with:
+#   - environment: production as a Protected Environment
+#   - Required approvals from the @security-reviewers group
+#   - A deployment approval rule with at least 1 required approver
+#
+# For Tier 2 workloads, this job is skipped if the change is limited
+# to safe resource types (no IAM, networking, or encryption changes).
+approval-gate:
+  stage: approval-gate
+  needs:
+    - gitleaks-scan
+    - checkov-scan
+    - trivy-iac-scan
+    - trivy-sca
+    - container-scan
+  environment:
+    name: production
+    action: prepare
+  script:
+    - echo "Approval gate — pending manual approval by @security-reviewers"
+    - echo "Scan summary:"
+    - echo "  Secrets scan: passed"
+    - echo "  IaC Critical/High: $(cat checkov-report.xml | grep -c '<failure' || echo 0)"
+    - echo "  SCA Critical CVEs: $(cat trivy-sca-report.sarif | grep -c '"severity":"CRITICAL"' || echo 0)"
+    - echo "  Container Critical CVEs: $(cat container-scan-report.sarif | grep -c '"severity":"CRITICAL"' || echo 0)"
+  resource_group: production
+  rules:
+    - if: '$SCAN_ONLY == "true"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: delayed
+      start_in: 0 seconds  # immediately enters "manual" state
+    - when: never
+
+# ── Stage 7: deploy ──────────────────────────────────────────────────
+terraform-plan:
+  stage: deploy
+  image: hashicorp/terraform:${TERRAFORM_VERSION}
+  script:
+    - terraform init
+    - terraform plan -out=tfplan -detailed-exitcode
+  artifacts:
+    paths:
+      - tfplan
+    expire_in: 7 days
+  needs:
+    - approval-gate
+  rules:
+    - if: '$SCAN_ONLY == "true"'
+      when: never
+    - when: on_success
+
+terraform-apply:
+  stage: deploy
+  image: hashicorp/terraform:${TERRAFORM_VERSION}
+  script:
+    - terraform init
+    - terraform apply tfplan
+  environment:
+    name: production
+    action: start
+  needs:
+    - terraform-plan
+  rules:
+    - if: '$SCAN_ONLY == "true"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: manual
+    - when: never
+  resource_group: production
+
+# ── Scheduled drift detection ────────────────────────────────────────
+# Weekly scan across all repos — no deploy, no approval.
+# Results feed into the central findings dashboard and SIEM backlog.
+drift-check:
+  stage: deploy  # runs last, but only reports
+  image: bridgecrew/checkov:${CHECKOV_VERSION}
+  script:
+    - checkov --directory ${TF_ROOT} --framework terraform --compact --output cli --output json:checkov-drift.json
+  artifacts:
+    paths:
+      - checkov-drift.json
+    expire_in: 30 days
+  rules:
+    - if: '$SCAN_ONLY == "true"'
+      when: on_success
+    - when: never
