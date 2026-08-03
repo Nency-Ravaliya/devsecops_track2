@@ -1,0 +1,26 @@
+# Workspace and tool artifacts
+.claude/
+
+# Test outputs
+test/checkov_output.json
+test/demo_log.txt
+test/final_report.md
+test/gitleaks.json
+test/gitleaks_stdout.txt
+test/terrascan_output.json
+test/tfsec_output.json
+test/trivy_output.json
+test/terraform_validate_*.txt
+test/pipeline_results/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Python artifacts
+__pycache__/
+*.pyc
+
+EOF && git status --short

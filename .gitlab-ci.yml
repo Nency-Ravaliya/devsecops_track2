@@ -1,0 +1,173 @@
+stages:
+  - preflight
+  - secrets
+  - iac-scan
+  - sca-sbom
+  - container-scan
+  - drift
+
+variables:
+  TERRAFORM_VERSION: "0.12.31"
+  CHECKOV_VERSION: "3.2.0"
+  TRIVY_VERSION: "0.55.2"
+  GITLEAKS_VERSION: "8.20.0"
+  SYFT_VERSION: "latest"
+  TF_ROOT: "${CI_PROJECT_DIR}"
+
+# Preflight stage: syntax and format checks.
+terraform-fmt:
+  stage: preflight
+  image: hashicorp/terraform:${TERRAFORM_VERSION}
+  script:
+    - terraform fmt -check -recursive -diff
+  allow_failure: true
+
+terraform-validate:
+  stage: preflight
+  image: hashicorp/terraform:${TERRAFORM_VERSION}
+  script:
+    - cd reference-target/terraform/aws
+    - terraform init -backend=false
+    - terraform validate
+  allow_failure: true
+
+# Secrets detection stage.
+gitleaks-scan:
+  stage: secrets
+  image: ghcr.io/gitleaks/gitleaks:${GITLEAKS_VERSION}
+  script:
+    - gitleaks detect --source=${TF_ROOT} --verbose --no-git
+  allow_failure: false
+  artifacts:
+    reports:
+      secret_detection: gl-secret-detection-report.json
+    when: always
+
+# IaC security scanning stage.
+checkov-scan:
+  stage: iac-scan
+  image: bridgecrew/checkov:${CHECKOV_VERSION}
+  script:
+    - |
+      checkov --directory ${TF_ROOT} \
+              --framework terraform \
+              --compact \
+              --output cli \
+              --output junitxml:checkov-report.xml \
+              --output sarif:checkov-report.sarif \
+              --skip-check MEDIUM,LOW \
+              --severity CRITICAL,HIGH \
+              --quiet
+  artifacts:
+    reports:
+      iac_scanning: checkov-report.xml
+      sast: checkov-report.sarif
+    when: always
+
+trivy-iac-scan:
+  stage: iac-scan
+  image: aquasec/trivy:${TRIVY_VERSION}
+  variables:
+    TRIVY_CACHE_DIR: "${CI_PROJECT_DIR}/.trivycache/"
+  cache:
+    paths:
+      - .trivycache/
+  script:
+    - trivy config --severity CRITICAL,HIGH --exit-code 1 --format sarif --output trivy-iac-report.sarif ${TF_ROOT}
+  artifacts:
+    reports:
+      sast: trivy-iac-report.sarif
+    when: always
+
+# Optional tfsec scan for additional IaC coverage.
+tfsec-scan:
+  stage: iac-scan
+  image: aquasec/tfsec:latest
+  script:
+    - tfsec ${TF_ROOT} --format sarif --out tfsec-report.sarif
+  artifacts:
+    reports:
+      sast: tfsec-report.sarif
+    when: always
+
+opa-conftest:
+  stage: iac-scan
+  image: openpolicyagent/conftest:latest
+  script:
+    - conftest test --policy policy/ ${TF_ROOT} --policy alpine.rego
+  allow_failure: true
+  rules:
+    - exists:
+        - "policy/*.rego"
+
+# Dependency and SBOM stage.
+trivy-sca:
+  stage: sca-sbom
+  image: aquasec/trivy:${TRIVY_VERSION}
+  variables:
+    TRIVY_CACHE_DIR: "${CI_PROJECT_DIR}/.trivycache/"
+  cache:
+    paths:
+      - .trivycache/
+  script:
+    - |
+      trivy fs --scanners vuln \
+               --severity CRITICAL,HIGH \
+               --exit-code 1 \
+               --format sarif \
+               --output trivy-sca-report.sarif \
+               ${TF_ROOT}
+  allow_failure:
+    exit_codes: 2
+  artifacts:
+    reports:
+      sast: trivy-sca-report.sarif
+    when: always
+
+syft-sbom:
+  stage: sca-sbom
+  image: anchore/syft:${SYFT_VERSION}
+  script:
+    - syft dir:${TF_ROOT} --output cyclonedx-json=sbom-${CI_COMMIT_SHORT_SHA}.cdx.json
+  artifacts:
+    paths:
+      - "sbom-*.cdx.json"
+    expire_in: 90 days
+
+# Container scanning stage.
+container-scan:
+  stage: container-scan
+  image: aquasec/trivy:${TRIVY_VERSION}
+  variables:
+    TRIVY_CACHE_DIR: "${CI_PROJECT_DIR}/.trivycache/"
+    IMAGE_TAG: "${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA}"
+  cache:
+    paths:
+      - .trivycache/
+  script:
+    - trivy image --severity CRITICAL,HIGH --exit-code 1 --format sarif --output container-scan-report.sarif ${IMAGE_TAG}
+  allow_failure: false
+  artifacts:
+    reports:
+      sast: container-scan-report.sarif
+    when: always
+  rules:
+    - exists:
+        - "Dockerfile"
+        - "Containerfile"
+    - when: never
+
+# Drift scan stage for scheduled runs.
+drift-check:
+  stage: drift
+  image: bridgecrew/checkov:${CHECKOV_VERSION}
+  script:
+    - checkov --directory ${TF_ROOT} --framework terraform --compact --output cli --output json:checkov-drift.json
+  artifacts:
+    paths:
+      - checkov-drift.json
+    expire_in: 30 days
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: on_success
+    - when: never
