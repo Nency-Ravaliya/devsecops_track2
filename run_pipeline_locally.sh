@@ -28,18 +28,18 @@ run_cmd docker run --rm -v "$ROOT:/repo" -w /repo ghcr.io/gitleaks/gitleaks:v8.2
 
 print_header "Pipeline simulation - IaC scanning"
 run_cmd docker run --rm -v "$ROOT:/iac" bridgecrew/checkov:3.2.0 -d /iac --output json > "$RESULTS_DIR/checkov_output.json" 2>&1 || true
-run_cmd docker run --rm -v "$ROOT:/iac" aquasec/trivy:0.55.2 config --severity CRITICAL,HIGH --exit-code 1 --format sarif --output "$RESULTS_DIR/trivy-iac-report.sarif" /iac > "$RESULTS_DIR/trivy_iac.log" 2>&1 || true
+run_cmd docker run --rm -v "$ROOT:/iac" -v "$RESULTS_DIR:/iac/test/pipeline_results" aquasec/trivy:0.55.2 config --severity CRITICAL,HIGH --exit-code 1 --format sarif --output /iac/test/pipeline_results/trivy-iac-report.sarif /iac > "$RESULTS_DIR/trivy_iac.log" 2>&1 || true
 run_cmd docker run --rm -v "$ROOT:/iac" aquasec/tfsec:latest /iac --format json > "$RESULTS_DIR/tfsec_output.json" 2>&1 || true
 
 print_header "Pipeline simulation - dependency / SBOM"
-run_cmd docker run --rm -v "$ROOT:/iac" aquasec/trivy:0.55.2 fs --scanners vuln --severity CRITICAL,HIGH --exit-code 1 --format sarif --output "$RESULTS_DIR/trivy-sca-report.sarif" /iac > "$RESULTS_DIR/trivy_sca.log" 2>&1 || true
-run_cmd docker run --rm -v "$ROOT:/iac" anchore/syft:latest dir:/iac --output cyclonedx-json="${RESULTS_DIR}/sbom-${CI_COMMIT_SHORT_SHA:-local}.cdx.json"
+run_cmd docker run --rm -v "$ROOT:/iac" -v "$RESULTS_DIR:/iac/test/pipeline_results" aquasec/trivy:0.55.2 fs --scanners vuln --severity CRITICAL,HIGH --exit-code 1 --format sarif --output /iac/test/pipeline_results/trivy-sca-report.sarif /iac > "$RESULTS_DIR/trivy_sca.log" 2>&1 || true
+run_cmd docker run --rm -v "$ROOT:/iac" -v "$RESULTS_DIR:/iac/test/pipeline_results" anchore/syft:latest dir:/iac --output cyclonedx-json=/iac/test/pipeline_results/sbom-${CI_COMMIT_SHORT_SHA:-local}.cdx.json
 
 print_header "Pipeline simulation - container scan"
 if [ -f "$ROOT/Dockerfile" ] || [ -f "$ROOT/Containerfile" ]; then
   IMAGE_TAG="local-demo:latest"
   run_cmd docker build -t "$IMAGE_TAG" "$ROOT"
-  run_cmd docker run --rm aquasec/trivy:0.55.2 image --severity CRITICAL,HIGH --exit-code 1 --format sarif --output "$RESULTS_DIR/container-scan-report.sarif" "$IMAGE_TAG" > "$RESULTS_DIR/trivy_container.log" 2>&1 || true
+  run_cmd docker run --rm -v "$ROOT:/iac" -v "$RESULTS_DIR:/iac/test/pipeline_results" aquasec/trivy:0.55.2 image --severity CRITICAL,HIGH --exit-code 1 --format sarif --output /iac/test/pipeline_results/container-scan-report.sarif "$IMAGE_TAG" > "$RESULTS_DIR/trivy_container.log" 2>&1 || true
 else
   echo "Skipping container scan: no Dockerfile or Containerfile found"
 fi
