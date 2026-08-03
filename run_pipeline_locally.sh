@@ -24,7 +24,7 @@ run_cmd docker run --rm -v "$REF_TARGET/terraform/aws:/workspace" -w /workspace 
 run_cmd docker run --rm -v "$REF_TARGET/terraform/aws:/workspace" -w /workspace hashicorp/terraform:0.12.31 validate > "$RESULTS_DIR/terraform_validate.log" 2>&1 || true
 
 print_header "Pipeline simulation - secrets detection"
-run_cmd docker run --rm -v "$ROOT:/repo" -w /repo ghcr.io/gitleaks/gitleaks:8.20.0 detect --source /repo --verbose --no-git > "$RESULTS_DIR/gitleaks.log" 2>&1 || true
+run_cmd docker run --rm -v "$ROOT:/repo" -w /repo ghcr.io/gitleaks/gitleaks:v8.21.0 detect --source /repo --verbose --no-git > "$RESULTS_DIR/gitleaks.log" 2>&1 || true
 
 print_header "Pipeline simulation - IaC scanning"
 run_cmd docker run --rm -v "$ROOT:/iac" bridgecrew/checkov:3.2.0 -d /iac --output json > "$RESULTS_DIR/checkov_output.json" 2>&1 || true
