@@ -129,7 +129,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Drift check with Checkov
         run: |
-          docker run --rm -v "$PWD:/iac" bridgecrew/checkov:${{ env.CHECKOV_VERSION }} --directory /iac --framework terraform --compact --output cli --output json:checkov-drift.json
+          docker run --rm -v "$PWD:/iac" bridgecrew/checkov:${{ env.CHECKOV_VERSION }} --directory /iac --framework terraform --compact --output cli --output json --output-file-path checkov-drift.json
       - uses: actions/upload-artifact@v4
         with:
           name: drift-report

@@ -162,7 +162,7 @@ drift-check:
   stage: drift
   image: bridgecrew/checkov:${CHECKOV_VERSION}
   script:
-    - checkov --directory ${TF_ROOT} --framework terraform --compact --output cli --output json:checkov-drift.json
+    - checkov --directory ${TF_ROOT} --framework terraform --compact --output cli --output json --output-file-path checkov-drift.json
   artifacts:
     paths:
       - checkov-drift.json
