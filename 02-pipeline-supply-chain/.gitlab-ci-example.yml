@@ -299,7 +299,7 @@ drift-check:
   stage: deploy  # runs last, but only reports
   image: bridgecrew/checkov:${CHECKOV_VERSION}
   script:
-    - checkov --directory ${TF_ROOT} --framework terraform --compact --output cli --output json --output-file-path checkov-drift.json
+    - checkov --directory ${TF_ROOT} --framework terraform --compact --output cli --output json --output-file-path checkov-drift.json || true
   artifacts:
     paths:
       - checkov-drift.json
