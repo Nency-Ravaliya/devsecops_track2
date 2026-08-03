@@ -12,7 +12,7 @@ resource "azurerm_sql_server" "example" {
   location                     = azurerm_resource_group.example.location
   version                      = "12.0"
   administrator_login          = "ariel"
-  administrator_login_password = "Aa12345678"
+  administrator_login_password = random_string.password.result
   tags = merge({
     environment = var.environment
     terragoat   = "true"
@@ -80,7 +80,7 @@ resource "azurerm_postgresql_server" "example" {
   geo_redundant_backup_enabled = false
   auto_grow_enabled            = true
   administrator_login          = "terragoat"
-  administrator_login_password = "Aa12345678"
+  administrator_login_password = random_string.password.result
   version                      = "9.5"
   ssl_enforcement_enabled      = false
   tags = {

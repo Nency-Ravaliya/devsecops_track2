@@ -11,3 +11,4 @@ terraform {
   backend "azurerm" {
   }
 }
+provider "random" {}
