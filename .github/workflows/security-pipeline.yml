@@ -66,10 +66,10 @@ jobs:
           docker run --rm -v "$PWD:/iac" bridgecrew/checkov:${{ env.CHECKOV_VERSION }} -d /iac --output json > test/pipeline_results/checkov-output.json || true
       - name: Trivy IaC scan
         run: |
-          docker run --rm -v "$PWD:/iac" aquasec/trivy:${{ env.TRIVY_VERSION }} config --severity CRITICAL,HIGH --exit-code 1 --format sarif --output test/pipeline_results/trivy-iac-report.sarif /iac || true
+          docker run --rm -v "$PWD:/iac" -w /iac aquasec/trivy:${{ env.TRIVY_VERSION }} config --severity CRITICAL,HIGH --exit-code 1 --format sarif --output /iac/test/pipeline_results/trivy-iac-report.sarif /iac || true
       - name: tfsec scan
         run: |
-          docker run --rm -v "$PWD:/iac" aquasec/tfsec:latest /iac --format sarif --out test/pipeline_results/tfsec-report.sarif || true
+          docker run --rm -v "$PWD:/iac" -w /iac aquasec/tfsec:latest /iac --format sarif --out /iac/test/pipeline_results/tfsec-report.sarif || true
       - uses: actions/upload-artifact@v4
         with:
           name: iac-reports
@@ -88,10 +88,10 @@ jobs:
         run: mkdir -p test/pipeline_results
       - name: Trivy vulnerability scan
         run: |
-          docker run --rm -v "$PWD:/iac" aquasec/trivy:${{ env.TRIVY_VERSION }} fs --scanners vuln --severity CRITICAL,HIGH --exit-code 1 --format sarif --output test/pipeline_results/trivy-sca-report.sarif /iac || true
+          docker run --rm -v "$PWD:/iac" -w /iac aquasec/trivy:${{ env.TRIVY_VERSION }} fs --scanners vuln --severity CRITICAL,HIGH --exit-code 1 --format sarif --output /iac/test/pipeline_results/trivy-sca-report.sarif /iac || true
       - name: Generate SBOM with Syft
         run: |
-          docker run --rm -v "$PWD:/iac" anchore/syft:${{ env.SYFT_VERSION }} dir:/iac --output cyclonedx-json=test/pipeline_results/sbom-${{ github.run_id }}.cdx.json
+          docker run --rm -v "$PWD:/iac" -w /iac anchore/syft:${{ env.SYFT_VERSION }} dir:/iac --output cyclonedx-json=/iac/test/pipeline_results/sbom-${{ github.run_id }}.cdx.json
       - uses: actions/upload-artifact@v4
         with:
           name: sbom-reports
@@ -122,7 +122,7 @@ jobs:
       - name: Trivy container scan
         if: steps.has_dockerfile.outputs.exists == 'true'
         run: |
-          docker run --rm aquasec/trivy:${{ env.TRIVY_VERSION }} image --severity CRITICAL,HIGH --exit-code 1 --format sarif --output test/pipeline_results/container-scan-report.sarif local-demo:latest || true
+          docker run --rm -v "$PWD:/iac" -w /iac aquasec/trivy:${{ env.TRIVY_VERSION }} image --severity CRITICAL,HIGH --exit-code 1 --format sarif --output /iac/test/pipeline_results/container-scan-report.sarif local-demo:latest || true
       - uses: actions/upload-artifact@v4
         with:
           name: container-reports
@@ -139,7 +139,7 @@ jobs:
         run: mkdir -p test/pipeline_results
       - name: Drift check with Checkov
         run: |
-          docker run --rm -v "$PWD:/iac" bridgecrew/checkov:${{ env.CHECKOV_VERSION }} --directory /iac --framework terraform --compact --output cli --output json --output-file-path test/pipeline_results/checkov-drift.json || true
+          docker run --rm -v "$PWD:/iac" -w /iac bridgecrew/checkov:${{ env.CHECKOV_VERSION }} --directory /iac --framework terraform --compact --output cli --output json --output-file-path /iac/test/pipeline_results/checkov-drift.json || true
       - uses: actions/upload-artifact@v4
         with:
           name: drift-report
