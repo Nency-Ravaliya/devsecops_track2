@@ -119,6 +119,40 @@ jobs:
           docker build -t local-demo:latest .
       - name: Prepare pipeline results folder
         run: mkdir -p test/pipeline_results
+      - name: Create container scan placeholder when no image exists
+        if: steps.has_dockerfile.outputs.exists != 'true'
+        run: |
+          cat > test/pipeline_results/container-scan-report.sarif <<'EOF'
+          {
+            "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [
+              {
+                "tool": {
+                  "driver": {
+                    "name": "container-scan",
+                    "informationUri": "https://github.com/actions",
+                    "rules": []
+                  }
+                },
+                "results": [],
+                "invocations": [
+                  {
+                    "executionSuccessful": true,
+                    "toolExecutionNotifications": [
+                      {
+                        "level": "note",
+                        "message": {
+                          "text": "No Dockerfile or Containerfile present; container scan was skipped."
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
       - name: Trivy container scan
         if: steps.has_dockerfile.outputs.exists == 'true'
         run: |
