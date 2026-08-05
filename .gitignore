@@ -1,26 +1,54 @@
 # Workspace and tool artifacts
 .claude/
+.vscode/
+.idea/
 
 # Test outputs
-test/checkov_output.json
-test/demo_log.txt
-test/final_report.md
-test/gitleaks.json
-test/gitleaks_stdout.txt
-test/terrascan_output.json
-test/tfsec_output.json
-test/trivy_output.json
-test/terraform_validate_*.txt
-test/pipeline_results/
-
-# macOS
-.DS_Store
-
-# Logs
+/test/
+**/test/
 *.log
+*.tmp
+*.bak
 
-# Python artifacts
+# Local environment files
+.env
+.env.*
+*.pem
+*.key
+*.crt
+*.pfx
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+.venv/
+.venv_ppt/
 
-EOF && git status --short
+# OS files
+.DS_Store
+Thumbs.db
+
+# Office / presentation exports
+*.pptx
+*.ppt
+*.docx
+*.pdf
+*.key
+
+# Build / generated outputs
+build/
+dist/
+out/
+coverage/
+htmlcov/
+
+# Git / SSH
+.git/
+*.pub
+id_*
+
+# Local repo artifacts
+COMMIT_HISTORY.txt
+SUBMISSION_STATUS.txt
+MANUAL_DEMO_COMMANDS.md

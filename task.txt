@@ -1,0 +1,419 @@
+DevSecOps Engineer 
+
+Technical Assessment 
+
+Track 2 — Multi-Cloud Platform Security & Compliance 
+
+Programme Context: Multi-Cloud Workloads | Terraform IaC | GitLab CI/CD | Government Cloud Environments 
+
+ 
+
+Assessment Overview 
+
+This track is the generalist backbone the programme needs — someone who can move across cloud providers and tooling rather than being deep in exactly one stack. The current estate is mostly AWS, but the roadmap includes Azure and GCP workloads, and the review process, compliance mapping, and pipeline design all need to hold up once that happens rather than being rebuilt from scratch. 
+
+This is a working exercise, not a written exam. You'll review real infrastructure code, design against constraints that don't have a clean textbook answer, produce artefacts in a GitHub repository, and defend your reasoning live in front of a panel. 
+
+Two architecture diagrams — a high-level and a low-level design — are required deliverables you produce yourself as part of this assessment, not something handed to you. Section 8 covers what's expected. 
+
+What this is actually testing 
+
+Not whether AWS/Azure/GCP documentation can be recited from memory. What matters is how findings get prioritised across a large, uneven estate with limited remediation bandwidth, how a design decision gets defended under scrutiny, and whether all of this can be explained to someone without a security background well enough that they can act on it. 
+
+1. Role Focus 
+
+1.1 Where This Sits in the Programme 
+
+This track covers the generalist workstream that has to scale across roughly 100 workloads of varying shape — storage- and database-backed web apps, legacy VM-hosted systems, serverless components, and COTS deployments — across two landing zone tiers today, with more cloud providers coming. Whoever owns this becomes the primary point of contact for day-to-day review, compliance readiness, and remediation coordination, escalating deep specialist topics (Kubernetes internals, for instance) to whoever owns that track. 
+
+1.2 What a Strong Answer Looks Like 
+
+Has actually run security reviews across a large, multi-account, and ideally multi-cloud estate — not just a single application. 
+
+Can prioritise across dozens of concurrent findings with limited remediation bandwidth, and defend why some things wait. 
+
+Understands how the same control looks different across providers — IAM vs. Entra ID/Azure RBAC vs. GCP IAM, Security Groups vs. NSGs vs. VPC firewall rules — rather than only knowing one flavour. 
+
+Has built or substantially reworked a shift-left pipeline and a detection/monitoring capability, not only operated tooling someone else designed. 
+
+Can walk a delivery engineer through a finding, and a governance board through a risk decision, without switching vocabularies badly. 
+
+1.3 What This Is Not 
+
+Not a certification exam, and not a memory test on internal government compliance clause numbers — those documents aren't public and won't be shared here. What's being evaluated is the approach that would be used once access to the real standards exists. 
+
+2. Business Scenario 
+
+2.1 The Situation 
+
+The programme runs roughly 100 workloads today, provisioned through Terraform on GitLab, primarily on AWS and split across two government landing zone tiers — an earlier-generation one and a newer one with continuous compliance monitoring switched on. A migration to bring Azure- and GCP-hosted components into the same governance model is on the roadmap for later this year. 
+
+The estate is a mix of modern serverless components, legacy VM-hosted applications, and several COTS products procured years ago with limited vendor flexibility for hardening. A recent internal audit sampling 12 of the ~100 workloads found: two storage buckets with public access controls disabled, one database instance with encryption-at-rest disabled and public accessibility enabled, an IAM policy with wildcard permissions attached to a CI service account, inconsistent audit logging coverage across accounts, and no centralised detection or alerting on any of it. This has been escalated into a full remediation programme, with a formal go-live security sign-off required within the quarter. 
+
+One complication: a COTS financial reconciliation tool in the estate has a vendor-imposed limitation — its connection driver can't operate with storage encryption enabled — and can't be re-platformed before the compliance deadline. 
+
+2.2 Current-State Environment (for reference) 
+
+No architecture diagram is provided for this environment — producing one is part of the assessment (Section 8). For context, the current state is understood to include: 
+
+Two landing zone tiers on AWS: an older account-per-environment model, and a newer landing-zone-accelerator-style model with centralised logging. 
+
+A self-managed GitLab instance with both group-level and project-level runners. 
+
+A mix of storage buckets, managed databases, VM-hosted legacy applications, and a handful of serverless components. 
+
+No centralised secrets management across the estate — a mix of native cloud secrets managers used inconsistently. 
+
+No cloud security posture management (CSPM) or centralised detection tooling deployed today. 
+
+Inconsistent audit logging — some accounts have full trail coverage, others don't. 
+
+Roadmap: Azure and GCP workloads onboarding within the next two quarters, expected to sit under the same governance model. 
+
+2.3 What's Expected 
+
+A security review of representative workloads, written up as a prioritised findings register. 
+
+A shift-left pipeline and software supply chain redesign that would have caught these issues before merge/deploy. 
+
+A detection, monitoring, and incident response approach for the estate. 
+
+A remediation advisory pack a delivery engineer can act on without a security background. 
+
+A recommendation for the COTS product that can't support encryption-at-rest. 
+
+A high-level and a low-level architecture diagram for the target-state secure design. 
+
+A live walkthrough of findings and recommendations to a mock governance panel. 
+
+2.4 Constraints 
+
+No access to the real environment — the review uses a public reference repository instead (Section 3). 
+
+Some controls can't be fully automated because of COTS/legacy limitations — compensating controls need to be part of the answer, not just a list of gaps. 
+
+There's a hard compliance deadline, so recommendations need to be realistic about what can actually be fixed before go-live versus accepted as residual risk with a plan attached. 
+
+With ~100 workloads and limited remediation bandwidth, prioritisation reasoning matters as much as the findings themselves. 
+
+3. Public Repository Options 
+
+The real Terraform/cloud codebase is confidential, so the hands-on review should be done against a public, intentionally-vulnerable reference repository instead. Pick one primary repository; a second can be referenced for supplementary findings if genuinely relevant. 
+
+3.1 Suggested Options 
+
+Repository 
+
+Location 
+
+Why it fits here 
+
+terragoat (bridgecrewio) 
+
+github.com/bridgecrewio/terragoat 
+
+Deliberately vulnerable Terraform spanning AWS, Azure, and GCP — the best fit given the multi-cloud direction of this track. 
+
+cfngoat (bridgecrewio) 
+
+github.com/bridgecrewio/cfngoat 
+
+CloudFormation equivalent — useful if legacy stacks predate Terraform adoption. 
+
+Landing Zone Accelerator (awslabs) 
+
+github.com/awslabs/landing-zone-accelerator-on-aws 
+
+A production-grade multi-account governance reference — useful as a target-state baseline for account structure and guardrails. 
+
+terraform-aws-modules / community Azure & GCP modules 
+
+github.com/terraform-aws-modules (+ azurerm/google equivalents) 
+
+Well-maintained, widely-adopted hardened modules — useful to show what good looks like. 
+
+ 
+
+A reasonable combination: fork terragoat as the primary review target — since it already spans three providers — and reference terraform-aws-modules or the Landing Zone Accelerator as the hardened target state when writing remediation and the architecture diagrams. 
+
+3.2 Substituting a Different Repository 
+
+A different public repository is fine if it demonstrates the same depth, as long as it's genuinely public and forkable, contains real IaC, and the choice is briefly justified in the submission README. 
+
+4. Required GitHub Submission Structure 
+
+Fork or create a repository for the submission. The repository itself is part of what's being evaluated — organisation, commit history, and documentation quality all factor in alongside the technical content. 
+
+4.1 Folder Structure 
+
+devsecops-assessment-track2/ 
+
+├── README.md                          # Overview, approach, how to navigate the repo 
+
+├── 01-findings/ 
+
+│   ├── findings-register.md            # Module 1 
+
+│   └── severity-methodology.md 
+
+├── 02-pipeline-supply-chain/ 
+
+│   ├── pipeline-design.md              # Module 2 
+
+│   └── .gitlab-ci-example.yml 
+
+├── 03-identity-governance/ 
+
+│   └── cross-cloud-iam-design.md       # Module 3 
+
+├── 04-network-zero-trust/ 
+
+│   └── network-design.md               # Module 4 
+
+├── 05-data-protection/ 
+
+│   └── encryption-key-mgmt.md          # Module 5 
+
+├── 06-detection-ir/ 
+
+│   └── monitoring-ir-plan.md           # Module 6 
+
+├── 07-remediation/ 
+
+│   ├── remediation-advisory.md         # Module 7 
+
+│   ├── compensating-controls.md        # Module 8 
+
+│   └── fixed-terraform/ 
+
+├── 08-threat-model/ 
+
+│   └── threat-model.md                 # Module 9 
+
+├── 09-compliance/ 
+
+│   └── compliance-mapping.md           # Module 10 
+
+├── 10-architecture/ 
+
+│   ├── hld-diagram.(png|drawio|svg)    # Module 11 
+
+│   ├── lld-diagram.(png|drawio|svg)    # Module 12 
+
+│   └── architecture-narrative.md 
+
+├── 11-resilience-dr/ 
+
+│   └── dr-plan.md                      # Module 13 
+
+└── 12-presentation/ 
+
+    └── slides.pdf 
+
+4.2 README.md, at minimum 
+
+A short executive summary of the overall security posture found in the reference repository. 
+
+The chosen repository (Section 3), and justification if a substitute was used. 
+
+A brief note on approach and how the modules connect to one another. 
+
+4.3 Commit Hygiene 
+
+Incremental, meaningful commits rather than a single 'final submission' commit. 
+
+No secrets, credentials, or internal information committed at any point, including in history. 
+
+Commit messages tied to the module being worked on. 
+
+5. Hands-On Assessment Modules 
+
+Thirteen modules, each mapping to a domain in the programme's DevSecOps scope. Depth and defensibility of reasoning matter more than exhaustive coverage — but breadth across the full list matters too, since real environments don't let you pick and choose which risk category to think about. 
+
+Module 1 — Cloud Platform & Terraform Security Review 
+
+Against the chosen repository, produce a findings register (at least 20 findings) across storage, database, IAM, compute/networking, and logging resources — ideally touching more than one cloud provider if the repository supports it. 
+
+Public data exposure across storage and database services. 
+
+Encryption at rest and in transit, and where key management sits relative to the data. 
+
+IAM least-privilege violations, including wildcard actions/resources and unused permissions. 
+
+Hardcoded credentials or secrets committed in code. 
+
+Network exposure — security groups/NSGs/firewall rules, and how they differ in default posture across providers. 
+
+Logging/audit trail gaps, including whether logs are actually shipped anywhere reviewable. 
+
+Backup/resilience posture — retention settings, snapshot encryption, and deletion protection. 
+
+Where a control differs meaningfully between providers (e.g. how a public-bucket-equivalent misconfiguration looks on AWS vs. Azure vs. GCP), where the repository allows it. 
+
+Module 2 — Shift-Left Pipeline & Software Supply Chain Security 
+
+Design a CI/CD pipeline that would have caught the audit findings before merge/deploy, and that treats the software supply chain as in scope, not just the Terraform. 
+
+Named tools at each gate (e.g. Gitleaks/TruffleHog, Checkov/tfsec, a dependency/SCA scanner) and exactly what each checks. 
+
+Hard-fail vs. soft-fail (warn-only) gates, and the reasoning for that split. 
+
+A protected-environment approval step reflecting security sign-off before production. 
+
+How the design scales across ~100 workloads without becoming a bottleneck — risk-based sampling, or tiered review depth by workload criticality. 
+
+SBOM and dependency provenance, and how findings from that feed back into the remediation backlog. 
+
+How the pipeline needs to change, if at all, once Azure/GCP workloads are onboarded. 
+
+Submit both a written design and an illustrative .gitlab-ci.yml. 
+
+Module 3 — Identity & Access Governance Across Clouds 
+
+Design an identity governance model that works across AWS, Azure, and GCP rather than three disconnected IAM strategies. 
+
+How workload identity federation would work across clouds (e.g. OIDC-based federation vs. long-lived cross-cloud credentials), and why one is preferred. 
+
+A least-privilege model for human access, including how break-glass/emergency access is handled and audited. 
+
+How privileged access (admin-level) is time-bound or approval-gated rather than standing. 
+
+How the wildcard-permission CI service account finding from the scenario would be redesigned — specific replacement permission set, not just 'make it more restrictive.' 
+
+Module 4 — Network Security & Zero-Trust Architecture 
+
+Design a target-state network architecture for the multi-cloud estate. 
+
+Segmentation strategy — how workloads of different sensitivity are isolated from each other, both within and across cloud providers. 
+
+Cross-cloud connectivity approach (e.g. transit gateway/private link/VPC peering equivalents) and what's exposed to the public internet versus not. 
+
+Egress control for workloads that shouldn't have general internet access. 
+
+How this design avoids becoming three separate network philosophies once Azure/GCP are onboarded. 
+
+Module 5 — Data Protection, Encryption & Key Management 
+
+Design an encryption and key management approach for the estate, addressing the COTS encryption gap from the scenario directly. 
+
+Key management approach — centralised versus per-cloud-native KMS, and the trade-off between operational simplicity and blast radius if a key is compromised. 
+
+Whether BYOK/HYOK is warranted anywhere in this estate, and why. 
+
+A basic data classification approach — not every workload needs the same controls, and the review should reflect that. 
+
+Data residency/sovereignty considerations relevant to a government programme, at a conceptual level. 
+
+Module 6 — Detection, Monitoring & Incident Response 
+
+There's no centralised detection or alerting today. Design one, and describe how an incident would actually be handled. 
+
+A CSPM approach for continuous configuration monitoring across providers. 
+
+What telemetry gets collected from each cloud, where it's centralised, and how alert fatigue is managed. 
+
+A concrete incident scenario: the wildcard-permission CI service account from the scenario is confirmed compromised and has been used to access a database. Walk through detection, containment, eradication, and recovery. 
+
+How this incident would be communicated up to the ITSO-equivalent stakeholder while it's still unfolding, versus in the post-incident report. 
+
+Module 7 — Remediation Advisory Pack 
+
+Take the three most critical findings from Module 1 and write delivery-facing remediation guidance for engineers without a security background. 
+
+A plain-language explanation of the risk — no unexplained jargon. 
+
+Step-by-step remediation instructions or corrected Terraform code. 
+
+What evidence would be needed to confirm the fix is actually complete. 
+
+Module 8 — Compensating Controls for a COTS Constraint 
+
+The scenario describes a COTS financial reconciliation tool that can't support encryption-at-rest due to a vendor-imposed driver limitation. 
+
+At least three compensating controls, drawing on the network and data-protection designs from earlier modules rather than inventing unrelated ones. 
+
+A recommended residual risk rating after compensating controls, and who should formally accept that risk. 
+
+A time-bound remediation plan — interim state vs. target state. 
+
+How to stop this one exception from being used to justify similar exceptions elsewhere across the ~100-workload estate. 
+
+Module 9 — Threat Modeling Exercise 
+
+Pick one workload from the reference repository and produce a threat model using STRIDE (or a methodology of your choice, stated explicitly). 
+
+A data flow diagram for the chosen workload (can be simple — this is not the HLD/LLD from Section 8). 
+
+At least 8 identified threats across multiple STRIDE categories, not clustered in just one or two. 
+
+For each threat: likelihood, impact, and the specific control (existing or proposed) that addresses it. 
+
+At least one threat that existing controls do not fully mitigate, with an honest statement of the residual risk. 
+
+Module 10 — Compliance Mapping 
+
+Access to the actual internal compliance clause text won't be provided here. Instead, show the mapping methodology: take five findings from Module 1 and show how each would be categorised against plausible compliance domains, and what evidence would be gathered to demonstrate compliance or justify an exception. Also address how a single policy-as-code framework (e.g. OPA/Conftest, or a comparable approach) could express the same control consistently across AWS, Azure, and GCP rather than maintaining three separate rule sets. 
+
+Module 11 — High-Level Architecture Diagram (HLD) 
+
+Produce a high-level architecture diagram for the target-state secure design described across Modules 1–10. This is a system-context view, not a component inventory. 
+
+Major building blocks: source control/CI, the cloud landing zone(s), identity provider, secrets/key management, logging/monitoring destination, and any external-facing edge. 
+
+Trust boundaries and environment boundaries — clearly marked, not implied by box placement alone. 
+
+Data flow direction between major components, at a level a non-technical stakeholder could follow. 
+
+Should fit on one page/slide and be presentable to a governance audience without a technical walkthrough. 
+
+Module 12 — Low-Level Architecture Diagram (LLD) 
+
+Produce a low-level architecture diagram that an engineer could actually implement from, expanding on one representative slice of the HLD (e.g. the path from ingress through to a specific database, including the CI/CD path that provisions it). 
+
+Specific resources: accounts/subscriptions/projects, subnets, IAM roles attached to specific components with the permissions each actually needs. 
+
+Where encryption happens (in transit and at rest) and where keys/secrets are sourced from. 
+
+Where the pipeline from Module 2 and the detection tooling from Module 6 physically sit relative to the runtime components. 
+
+Port/protocol-level detail where it matters for the security story. 
+
+8.x A Note on Both Diagrams 
+
+Use any tool that produces a clear result — draw.io, Lucidchart, Excalidraw, or even a well-organised Mermaid diagram checked into the repo. Include a short narrative (architecture-narrative.md) explaining the key security decisions in both diagrams, and at least one alternative design that was considered and rejected, with the reasoning why. 
+
+Module 13 — Resilience & Disaster Recovery Across Clouds 
+
+Security assurance that ignores availability is incomplete. Design a resilience approach for the estate. 
+
+A named RTO/RPO for at least one representative workload, and what architecture choices that target actually requires. 
+
+Backup approach across the different resource types in the estate (storage, database, compute), including how backups are encrypted and access-controlled. 
+
+Whether cross-cloud failover is realistic for any part of this estate, or whether resilience is better addressed within a single provider — argue the position rather than assuming multi-cloud automatically means multi-cloud DR. 
+
+What happens if an entire account/subscription/project needs to be rebuilt from scratch — how much of the target state is recoverable purely from what's in Git versus what would be lost. 
+
+6. Final Presentation Requirement 
+
+6.1 Format 
+
+45 minutes total: 25-minute presentation, 20-minute panel Q&A. 
+
+Delivered live (video call) to a panel. 
+
+Slide deck (PDF) submitted to 12-presentation/slides.pdf at least 24 hours before the session. 
+
+6.2 Required Content 
+
+An executive summary — overall risk posture across the sampled workloads, in language a non-technical stakeholder can act on. 
+
+The top findings and why they were prioritised above the rest, given limited remediation bandwidth. 
+
+The identity, network, and data-protection designs, and how they work together as one story rather than three disconnected modules. 
+
+The HLD and LLD, walked through at the appropriate level of detail for each. 
+
+The COTS/compensating-controls recommendation and the residual risk decision being asked of the panel. 
+
+A clear close on what the first stretch of time on this programme would actually look like. 
